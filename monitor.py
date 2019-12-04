@@ -6,16 +6,20 @@ import time
 
 ALOOMA_USERNAME = os.environ.get('ALOOMA_USERNAME')
 ALOOMA_PASSWORD = os.environ.get('ALOOMA_PASSWORD')
+ALOOMA_INSTANCE = os.environ.get('ALOOMA_INSTANCE', 'stg').lower()
 DATADOG_API_KEY = os.environ.get('DATADOG_API_KEY')
 MINUTES_SLEEP = 10
 SECONDS_SLEEP = MINUTES_SLEEP * 60
 
+if ALOOMA_INSTANCE.lower() == 'prod':
+    alooma_account_name = 'spireon-prod'
+else:
+    alooma_account_name = 'spireon'
 
-api = alooma.Alooma(
-    hostname='app.alooma.com',
-    port=443,
+api = alooma.Client(
     username=ALOOMA_USERNAME,
     password=ALOOMA_PASSWORD,
+    account_name=alooma_account_name
 )
 
 datadog.initialize(api_key=DATADOG_API_KEY)
@@ -28,7 +32,7 @@ def posix_timestamp():
 
 def send_metric(data):
     for d in data:
-        metric_name = "alooma.{}".format(d['target'].lower())
+        metric_name = "alooma.{}.{}".format(ALOOMA_INSTANCE, d['target'].lower())
         values = d['datapoints']
 
         for x in values:
@@ -57,9 +61,9 @@ def send_metric(data):
 
 
 metrics = alooma.METRICS_LIST
-metrics.remove('CPU_USAGE')
-metrics.remove('MEMORY_CONSUMED')
-metrics.remove('MEMORY_LEFT')
+# metrics.remove('CPU_USAGE')
+# metrics.remove('MEMORY_CONSUMED')
+# metrics.remove('MEMORY_LEFT')
 
 
 def record_metric(m):
@@ -78,7 +82,7 @@ def record_num_inputs():
     inputs = api.get_inputs()
     num_inputs = len(inputs)
     result = datadog.api.Metric.send(
-        metric='alooma.num_inputs',
+        metric='alooma.{}.num_inputs'.format(ALOOMA_INSTANCE),
         points=[(posix_timestamp(), num_inputs)],
         type='gauge',
     )
